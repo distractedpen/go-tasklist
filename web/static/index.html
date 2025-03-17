@@ -3,13 +3,23 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Task List</title>
+        <title>Login/Register</title>
         <link href="style.css" rel="stylesheet">
     </head>
     <body>
-        <header>Welcome!</header>
-        <main id="tasklist">
-            <button id="addTaskButton" onclick="openTaskForm()">Add Task</button>
+        <main>
+            <h1>Task List</h1>
+            <form id="loginform">
+                <div class="loginform-inputs">
+                    <input id="loginform-username" name="username" type="text" placeholder="Username"/>
+                    <input id="loginform-password" name="password" type="password" placeholder="Password"/>
+                </div>
+                <div class="loginform-buttons">
+                    <button id="loginform-buttons-login">Login</button>
+                    <button id="loginform-buttons-register">Register</button>
+                </div>
+                <p id="loginform-error"></p>
+            </form>
         </main>
         <script src="index.js"></script>
     </body>

@@ -15,7 +15,8 @@ body {
 header {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    width: 50%;
 }
 
 #tasklist {
@@ -48,4 +49,32 @@ header {
 
 .new-task-form {
     visibility: hidden;
+}
+
+#loginform {
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background-color: #1b8185;
+    border: 2px solid black;
+    justify-content: center;
+    align-items: center;
+}
+
+.loginform-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.loginform-buttons {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    gap: 5px;
+}
+
+#loginform-error {
+    color: red;
 }

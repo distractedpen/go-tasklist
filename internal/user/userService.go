@@ -1,49 +1,36 @@
 package user
 
-import (
-	"log"
-	"go-tasklist/internal/task"
-)
-
-// Could use a custom error type to handle Does not exist or other errors
-
-// User Service
 type UserService interface {
-	GetTasks(int64) []task.Task
-	AddTask(int64, task.TaskDto)
-	RemoveTask(int64, int64)
+	GetUserByUsername(username string) (User, error)
+	GetUserById(id int64) (User, error)
+	CreateUser(UserRequest) error
 }
 
 type userService struct {
-	taskRepository task.TaskRepository
+	userRepository UserRepository
 }
 
-// Get Task
-func (s userService) GetTasks(userId int64) []task.Task {
-	tasks, err := s.taskRepository.GetTasks(userId)
+
+func (s userService) GetUserById(id int64) (User, error) {
+	user, err := s.userRepository.GetUserById(id)
+	return user, err
+}
+
+func (s userService) GetUserByUsername(username string) (User, error) {
+	user, err := s.userRepository.GetUserByUsername(username)
+	return user, err
+}
+
+func (s userService) CreateUser(userRequset UserRequest) error {
+	err := s.userRepository.CreateUser(userRequset)
 	if nil != err {
-		log.Fatal(err)
+		return err
 	}
-	return tasks
+	return nil
 }
 
-// Add Task
-func (s userService) AddTask(userId int64, newTask task.TaskDto) {
-	err := s.taskRepository.InsertTask(userId, newTask)
-	if nil != err {
-		log.Fatal(err)
-	}
-}
-
-// Remove Task
-func (s userService) RemoveTask(userId int64, taskId int64) {
-	err := s.taskRepository.RemoveTask(userId, taskId)
-	if nil != err {
-		log.Fatal(err)
-	}
-}
-
-func GetUserService(taskRepository task.TaskRepository) UserService {
+func GetUserService(userRepository UserRepository) UserService {
 	return userService{
-		taskRepository: taskRepository,
-	} }
+		userRepository: userRepository,
+	} 
+}

@@ -2,14 +2,15 @@ package task
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
+
+	"go-tasklist/internal/util"
 )
 
 type TaskRepository interface {
+	GetTasks(int64) ([]Task, error)
 	InsertTask(int64, TaskDto) error
 	RemoveTask(int64, int64) error
-	GetTasks(int64) ([]Task, error)
 }
 
 type taskRepository struct {
@@ -21,18 +22,19 @@ func (r taskRepository) GetTasks(userId int64) ([]Task, error) {
 
 	rows, err := r.db.Query(`
 		SELECT * FROM tasks where id IN 
-			(SELECT taskId FROM users_tasks WHERE userId = ?);`, userId)
+		(SELECT taskId FROM users_tasks WHERE userId = ?);`, 
+		userId)
 	defer rows.Close()
 
 	if nil != err {
-		return tasks, fmt.Errorf("taskRepository: Error Reading DB\n")
+		return tasks, util.ErrDB{}
 	}
 
 	for rows.Next() {
 		var task Task
 		err := rows.Scan(&task.Id, &task.Name, &task.Description)
 		if nil != err {
-			return tasks, fmt.Errorf("taskRepository: Error Loading DB Data.\n")
+			return tasks, util.ErrDB{}
 		}
 		tasks = append(tasks, task)
 	}
@@ -41,7 +43,6 @@ func (r taskRepository) GetTasks(userId int64) ([]Task, error) {
 }
 
 func (r taskRepository) InsertTask(userId int64, newTask TaskDto) error {
-	// check if item already exists in task table
 	row := r.db.QueryRow(`
 		SELECT * FROM tasks WHERE name=? AND description=?;`,
 		newTask.Name, newTask.Description,
@@ -52,7 +53,7 @@ func (r taskRepository) InsertTask(userId int64, newTask TaskDto) error {
 
 	if nil != err && sql.ErrNoRows != err {
 		log.Println(err.Error())
-		return fmt.Errorf("DB Error")
+		return util.ErrDB{}
 	}
 	newId := task.Id
 
@@ -66,16 +67,16 @@ func (r taskRepository) InsertTask(userId int64, newTask TaskDto) error {
 		)
 
 		if row.Scan() != sql.ErrNoRows {
-			log.Printf("Task %v already exists in user %d list\n", newTask, userId)
-			return fmt.Errorf("Task already Exists in list.")
+			return util.ErrExists{}
 		}
 
-		res, err := r.db.Exec("INSERT INTO tasks(name, description) values (?, ?);",
+		res, err := r.db.Exec(
+			"INSERT INTO tasks(name, description) values (?, ?);",
 			newTask.Name, newTask.Description)
 
 		if nil != err {
 			log.Println(err.Error())
-			return fmt.Errorf("Error updating user list")
+			return util.ErrDB{}
 		}
 
 		newId, _ = res.LastInsertId()
@@ -84,7 +85,7 @@ func (r taskRepository) InsertTask(userId int64, newTask TaskDto) error {
 	_, err = r.db.Exec("INSERT INTO users_tasks values (?,?);", userId, newId)
 	if nil != err {
 		log.Println(err.Error())
-		return fmt.Errorf("Error inserting new data")
+		return util.ErrDB{}
 	}
 
 	return nil
@@ -99,31 +100,19 @@ func (r taskRepository) RemoveTask(userId int64, taskId int64) error {
 	err := row.Err()
 	if nil != err && sql.ErrNoRows != err {
 		log.Println(err.Error())
-		return fmt.Errorf("DB Error")
+		return util.ErrDB{}
 	}
-
 
 	if sql.ErrNoRows == err {
-		log.Printf("Task %d does not exist in user %d tasklist.\n", taskId, userId)
-		return fmt.Errorf("Task does not exist.")
+		return util.ErrDoesNotExist{}
 	}
 
-	res, err := r.db.Exec(
+	_, err = r.db.Exec(
 		`DELETE FROM users_tasks WHERE userId=? AND taskId=?;`,
 		userId, taskId)
 	if nil != err {
 		log.Print(err)
-		return fmt.Errorf("Error Deleting from DB.")
-	}
-
-	rows, err := res.RowsAffected()
-	if nil != err {
-		log.Print(err)
-		return fmt.Errorf("Error Deleting from DB.")
-	}
-	if rows == 0 {
-		log.Printf("No rows Deleted!\n")
-		return nil
+		return util.ErrDB{}
 	}
 
 	return nil

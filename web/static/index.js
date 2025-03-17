@@ -1,106 +1,88 @@
+function handleLogin(e) {
+    e.preventDefault();
+    const body = getFormData();
+    if (!body) {
+        clearFormData();
+        return;
+    }
 
-// User = {"username": str}
-
-const API = "http://localhost:8080/api/";
-
-
-// get the user task list data
-// @param {id} user id
-// @returns User
-async function fetchUser(id) {
-    await fetch(API + `tasks/${id}`, {})
-        .then((res) => res.json())
-        .then((data) => {
-            sessionStorage.setItem("userId", id);
-            hydrateTaskList(data.data);
+    fetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify(body),
+    })
+        .then((res) => {
+            if (res.status == 200) {
+                return res.json();
+            } else {
+                throw Error("Error Logging in!");
+            }
         })
-        .catch((err) => console.error(err));
-
+        .then((json) => {
+            data = json.data;
+            localStorage.setItem("userToken", data.token);
+            localStorage.setItem("userId", data.id);
+            localStorage.setItem("userName", data.username);
+            location.pathname = "/tasks.html";
+        })
+        .catch((err) => {
+            setErrorMessage(err);
+        });
 }
 
-async function deleteTask(taskId) {
-    const userId = sessionStorage.getItem("userId");
-    await fetch(API + `tasks/${userId}/${taskId}`, { method: "DELETE" })
-        .catch((err) => console.error(err));
-}
-
-async function addTask(newTask) {
-    console.log(newTask);
-    const body = { name: newTask.get("name"), description: newTask.get("description") };
-    const userid = sessionStorage.getItem("userId");
-    await fetch(API + `tasks/${userid}`, { method: "POST", body: JSON.stringify(body) })
-        .then((res) => res.json())
-        .then((_) => { insertTask(body) })
-        .catch((err) => console.error(err));
-}
-
-function openTaskForm() {
-    console.log("new task form");
-    const tasklist = document.getElementById("tasklist");
-    const newTaskForm = document.createElement("form");
-    const addButton = document.createElement("button");
-    addButton.innerText = "Add Task";
-    addButton.onclick = function(e) {
-        e.preventDefault();
-        const formData = new FormData(newTaskForm);
-        console.log(formData);
-        addTask(formData);
-        tasklist.removeChild(newTaskForm);
+function handleRegister(e) {
+    e.preventDefault();
+    let body = getFormData();
+    if (!body) {
+        clearFormData();
+        return;
     }
-    const cancelButton = document.createElement("button");
-    cancelButton.innerText = "Cancel";
-    cancelButton.onclick = function() {
-        tasklist.removeChild(newTaskForm);
+    fetch("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify(body),
+    })
+    .then((res) => {
+        if (res.status == 200) {
+            return res.json();
+        } else {
+            throw Error("Error Registering!");
+        }
+    })
+    .then((_) => {
+        alert("Register Successful! Please login.");
+        location.reload()
+    })
+    .catch((err) => {
+        setErrorMessage(err);
+    });
+}
+
+function setErrorMessage(message) {
+    const errorEle = document.getElementById("loginform-error");
+    errorEle.innerText = message;
+}
+
+function getFormData() {
+    const usernameEle = document.getElementById("loginform-username");
+    const passwordEle = document.getElementById("loginform-password");
+    const body = {
+        username: usernameEle.value,
+        password: passwordEle.value,
+    };
+    if (body.username.length == 0 || body.password.length == 0) {
+        setErrorMessage("Username and Password required");
+        return undefined;
     }
-    newTaskForm.appendChild(createInputField("name", "Name"));
-    newTaskForm.appendChild(createInputField("description", "Description"));
-    newTaskForm.appendChild(addButton);
-    newTaskForm.appendChild(cancelButton);
-    tasklist.insertBefore(newTaskForm, document.getElementById("addTaskButton"));
-    console.log("where is it?");
+    return body;
 }
 
-function createInputField(name, placeholder, hidden = false) {
-    const input = document.createElement("input");
-    input.name = name;
-    input.placeholder = placeholder;
-    input.hidden = hidden;
-    return input;
+function clearFormData() {
+    const usernameEle = document.getElementById("loginform-username");
+    const passwordEle = document.getElementById("loginform-password");
+    usernameEle.value = "";
+    passwordEle.value = "";
 }
 
-function createTaskCard(task) {
-    const tasklist = document.getElementById("tasklist");
-    let taskElement = document.createElement("div");
-    let taskNameEle = document.createElement("h2");
-    let taskDescEle = document.createElement("p");
-    let deleteButton = document.createElement("button");
-    taskElement.className = "task-card";
-    taskNameEle.innerText = task.name;
-    taskDescEle.innerText = task.description;
-    deleteButton.innerText = "Delete";
-    deleteButton.onclick = function() {
-        deleteTask(task.id);
-        tasklist.removeChild(taskElement);
-    }
-    taskElement.appendChild(taskNameEle);
-    taskElement.appendChild(taskDescEle);
-    taskElement.appendChild(deleteButton);
-    return taskElement;
-}
 
-// populate the user task list container
-function hydrateTaskList(tasks) {
-    const tasklist = document.getElementById("tasklist");
-    const addButton = document.getElementById("addTaskButton");
-    for (let task of tasks) {
-        tasklist.insertBefore(createTaskCard(task), addButton);
-    }
-}
-
-function insertTask(task) {
-    const tasklist = document.getElementById("tasklist");
-    const addButton = document.getElementById("addTaskButton");
-    tasklist.insertBefore(createTaskCard(task), addButton);
-}
-
-fetchUser(1);
+// page button setup
+document.getElementById("loginform-buttons-login").onclick = (event) => handleLogin(event);
+document.getElementById("loginform-buttons-register").onclick = (event) => handleRegister(event);

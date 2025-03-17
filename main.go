@@ -5,13 +5,16 @@ import (
 	"net/http"
 	"time"
 
+	"go-tasklist/internal/auth"
 	"go-tasklist/internal/task"
 	"go-tasklist/internal/user"
+	"go-tasklist/internal/middleware"
 
 	"database/sql"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
+	"github.com/joho/godotenv"
 )
 
 func getDB() *sql.DB {
@@ -49,12 +52,12 @@ func createTables(db *sql.DB) {
 		);`)
 }
 
-type uiData struct {
-	User user.UserDto
-	Tasks []task.Task
-}
-
 func main() {
+	err := godotenv.Load(".env")
+	if nil != err {
+		log.Fatalf(".env file not found\n")
+	}
+
 
 	db := getDB()
 	createTables(db)
@@ -63,20 +66,34 @@ func main() {
 
 	staticFS := http.FileServer(http.Dir("./web/static/"))
 	taskRespoitory := task.GetTaskRepository(db)
-	userService := user.GetUserService(taskRespoitory)
-	userApi := user.GetUserAPI(userService)
+	tasksService := task.GetTaskService(taskRespoitory)
+	tasksApi := task.GetTaskApi(tasksService)
+	userRepository := user.GetUserRepository(db)
+	userService := user.GetUserService(userRepository)
+	authService := auth.GetAuthService(userService)
+	authApi := auth.GetAuthHandlers(authService)
 
-	log.Printf("Loaded userApi: %+v", userApi)
+	log.Printf("Loaded tasksApi: %+v", tasksApi)
+	log.Printf("Loaded staticFS: %+v", staticFS)
 
-	mux.Handle("/", staticFS)
+	mux.Handle("/", staticFS);
 
-	mux.HandleFunc("GET /api/tasks/{userId}", userApi.GetUserTasks)
-	mux.HandleFunc("POST /api/tasks/{userId}", userApi.AddUserTask)
-	mux.HandleFunc("DELETE /api/tasks/{userId}/{taskId}", userApi.DeleteUserTask)
+	mux.HandleFunc("POST /api/auth/login", authApi.Login)
+	mux.HandleFunc("POST /api/auth/register", authApi.Register)
+
+	mux.Handle("GET /api/tasks/{userId}", 
+		middleware.Authenticated(http.HandlerFunc(tasksApi.GetUserTasks)))
+	mux.Handle("POST /api/tasks/{userId}", 
+		middleware.Authenticated(http.HandlerFunc(tasksApi.AddUserTask)))
+	mux.Handle("DELETE /api/tasks/{userId}/{taskId}", 
+		middleware.Authenticated(http.HandlerFunc(tasksApi.DeleteUserTask)))
+
+	loggerMux := middleware.NewLoggerHandler(mux)
+
 
 	s := &http.Server{
 		Addr:           ":8080",
-		Handler:        mux,
+		Handler:        loggerMux,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
